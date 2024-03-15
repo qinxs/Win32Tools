@@ -21,7 +21,8 @@ static TCHAR szTitle[32];
 
 // Forward declarations of functions included in this code module:
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-void                AddTrayIcon(HWND hWnd);
+BOOL                AddTrayIcon(HWND hWnd);
+BOOL                DeleteTrayIcon();
 void                ShowContextMenu(HWND hWnd, POINT pt);
 void                SetTrayIconAndTip();
 LRESULT CALLBACK    KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
@@ -153,7 +154,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SendMessage(hStatic, WM_SETFONT, (WPARAM)hFont, NULL);
             //OutputDebugString(TEXT("WM_CREATE\n"));
         }
-        return 0;
+        break;
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -165,7 +166,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             EndPaint(hWnd, &ps);
             //OutputDebugString(TEXT("WM_PAINT\n"));
         }
-        return 0;
+        break;
     // 设置静态控件颜色
     case WM_CTLCOLORSTATIC:
         {
@@ -177,15 +178,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             //SetBkColor(hdc, RGB(0, 255, 255) );   // 文字背景颜色
             return (INT_PTR)hBrush;                 // 必须返回画刷句柄
         }
+        break;
     case WM_CLOSE:
         ShowWindow(hWnd, SW_HIDE);
-        return 0;
+        break;
     case WM_DESTROY:
         DeleteObject(hBrush);
         DeleteObject(hFont);
         Shell_NotifyIcon(NIM_DELETE, &nid);
         PostQuitMessage(0);
-        return 0;
+        break;
     case WM_COMMAND:
         {
             int const wmId = LOWORD(wParam);
@@ -197,48 +199,57 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     AutoStart_STATE = !AutoStart_STATE;
                     if (AutoStart_STATE) AutoStart(1);
                     else CancleAutoStart();
-                    return 0;
+                    break;
                 case IDM_TRAY_SHOWMAIN:
                     ShowWindow(hWnd, SW_RESTORE);
                     SetActiveWindow(hWnd);
-                    return 0;
+                    break;
                 case IDM_TRAY_EXIT:
                     DestroyWindow(hWnd);
-                    return 0;
+                    break;
             }
         }
+        break;
     case WMAPP_NOTIFYCALLBACK:
         switch (lParam)
         {
             case WM_LBUTTONDBLCLK:  // 双击托盘的消息，退出
                 ShowWindow(hWnd, SW_RESTORE);
                 SetForegroundWindow(hWnd);
-                return 0;
+                break;
             case WM_RBUTTONDOWN:
                 // TODO: 微软教程是根据wParam获取坐标，此处wParam却是控件ID？
                 //POINT const pt = { LOWORD(wParam), HIWORD(wParam) };
                 POINT pt; // 用于接收鼠标坐标
                 GetCursorPos(&pt);
                 ShowContextMenu(hWnd, pt);
-                return 0;
+                break;
         }
-   
+        break;
+    default:
+        return DefWindowProc(hWnd, message, wParam, lParam);
     }
-    return DefWindowProc(hWnd, message, wParam, lParam);
+    return 0;
 }
 
-void AddTrayIcon(HWND hWnd) {
-    nid = { sizeof(nid) };
+BOOL AddTrayIcon(HWND hWnd) {
+    nid.cbSize = sizeof(NOTIFYICONDATA);
     nid.hWnd = hWnd;
     nid.uID = IDI_ICON2;
-    nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE | NIF_SHOWTIP;
+    nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     nid.uCallbackMessage = WMAPP_NOTIFYCALLBACK;
     //nid.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDI_ICON2));
     SetTrayIconAndTip();
+    return Shell_NotifyIcon(NIM_ADD, &nid);
 
     // NOTIFYICON_VERSION_4 is prefered
-    nid.uVersion = NOTIFYICON_VERSION_4;
-    Shell_NotifyIcon(NIM_ADD, &nid);
+    //nid.uVersion = NOTIFYICON_VERSION_4;
+    //return Shell_NotifyIcon(NOTIFYICON_VERSION_4, &nid);
+}
+
+BOOL DeleteTrayIcon()
+{
+    return Shell_NotifyIcon(NIM_DELETE, &nid);
 }
 
 void ShowContextMenu(HWND hWnd, POINT pt)
@@ -309,7 +320,7 @@ BOOL AutoStart(int type)
     HKEY hKey;
     //std::string strRegPath = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 
-    //1、找到系统的启动项  
+    //1、找到系统的启动项
     if (RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"), 0, KEY_ALL_ACCESS, &hKey) == ERROR_SUCCESS) ///打开启动项       
     {
         //2、得到本程序自身的全路径
@@ -322,7 +333,7 @@ BOOL AutoStart(int type)
         long result = RegGetValue(hKey, nullptr, szWindowClass, RRF_RT_REG_SZ, 0, strDir, &nLength);
 
         //4、排除已经存在
-        if (result != ERROR_SUCCESS || wcscmp(strExeFullDir, strDir) != 0)
+        if (result != ERROR_SUCCESS || lstrcmp(strExeFullDir, strDir) != 0)
         {
             if (type) {
                 //5、添加一个子Key,并设置值
