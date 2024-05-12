@@ -30,10 +30,10 @@ BOOL                AutoStart(int type);
 void                CancleAutoStart();
 
 int WINAPI WinMain(
-    HINSTANCE hInstance,
-    HINSTANCE hPrevInstance,
-    LPSTR     lpCmdLine,
-    int       nCmdShow
+    _In_ HINSTANCE hInstance,
+    _In_opt_ HINSTANCE hPrevInstance,
+    _In_ LPSTR     lpCmdLine,
+    _In_ int       nCmdShow
 )
 {
     g_hInst = hInstance;
@@ -278,7 +278,9 @@ void ShowContextMenu(HWND hWnd, POINT pt)
                 uFlags |= TPM_LEFTALIGN;
             }
 
-            TrackPopupMenuEx(hTrayMenu, uFlags, pt.x, pt.y, hWnd, NULL);
+            TrackPopupMenu(hTrayMenu, uFlags, pt.x, pt.y, 0, hWnd, NULL);
+            // 发送一个空消息到窗口来确认菜单已被处理
+            //PostMessage(hWnd, WM_NULL, 0, 0);
         }
         DestroyMenu(hMenu);
     }
