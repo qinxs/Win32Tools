@@ -14,8 +14,8 @@ processorArchitecture = '*' publicKeyToken = '6595b64144ccf1df' language = '*'\"
 // Global variables
 HINSTANCE       g_hInst;
 NOTIFYICONDATA  nid;
-HHOOK           myHook;
-BOOL            AutoStart_STATE = false;
+HHOOK           g_hHook;
+BOOL            g_bAutoStart = false;
 
 const UINT WMAPP_NOTIFYCALLBACK = WM_APP + 1;
 
@@ -30,7 +30,7 @@ BOOL                DeleteTrayIcon();
 void                ShowContextMenu(HWND hWnd, POINT pt);
 void                SetTrayIconAndTip();
 LRESULT CALLBACK    KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
-BOOL                IsAutoStart();
+BOOL                IsAutoStartEnabled();
 void                SetAutoStart(BOOL flag);
 
 int WINAPI WinMain(
@@ -86,7 +86,7 @@ int WINAPI WinMain(
     AddTrayIcon(hWnd);
 
     // 设置键盘全局监听
-    myHook = SetWindowsHookEx(
+    g_hHook = SetWindowsHookEx(
         WH_KEYBOARD_LL,     // 监听类型【键盘消息】
         KeyboardProc,       // 处理函数
         hInstance,          // 当前实例句柄
@@ -94,7 +94,7 @@ int WINAPI WinMain(
     );
 
     // 判断是否成功
-    if (myHook == NULL)
+    if (g_hHook == NULL)
     {
         MessageBox(hWnd, TEXT("添加钩子失败"), TEXT("错误"), MB_OK | MB_ICONERROR);
         return 1;
@@ -112,7 +112,7 @@ int WINAPI WinMain(
     }
 
     DeleteTrayIcon();
-    UnhookWindowsHookEx(myHook);
+    UnhookWindowsHookEx(g_hHook);
     return 0;
 }
 
@@ -125,7 +125,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:	    // 窗口创建时候的消息.
         {
-            AutoStart_STATE = IsAutoStart();
+            g_bAutoStart = IsAutoStartEnabled();
 
             // 创建画刷
             hBrush = (HBRUSH)GetStockObject(WHITE_BRUSH);
@@ -203,8 +203,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             switch (wmId)
             {
                 case IDM_TRAY_AUTOSTART:
-                    AutoStart_STATE = !AutoStart_STATE;
-                    SetAutoStart(AutoStart_STATE);
+                    g_bAutoStart = !g_bAutoStart;
+                    SetAutoStart(g_bAutoStart);
                     break;
                 case IDM_TRAY_SHOWMAIN:
                     ShowWindow(hWnd, SW_RESTORE);
@@ -266,7 +266,7 @@ void ShowContextMenu(HWND hWnd, POINT pt)
         HMENU hTrayMenu = GetSubMenu(hMenu, 0);
 
         // 每次都是重新生成新的 hMenu，所以用这种方式处理选中状态
-        CheckMenuItem(hTrayMenu, IDM_TRAY_AUTOSTART, AutoStart_STATE ? MF_CHECKED : MF_UNCHECKED);
+        CheckMenuItem(hTrayMenu, IDM_TRAY_AUTOSTART, g_bAutoStart ? MF_CHECKED : MF_UNCHECKED);
         if (hTrayMenu)
         {
             // our window must be foreground before calling TrackPopupMenu or the menu will not disappear when the user clicks away
@@ -317,11 +317,11 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     }
 
     // 将消息继续往下传递
-    return CallNextHookEx(myHook, nCode, wParam, lParam);
+    return CallNextHookEx(g_hHook, nCode, wParam, lParam);
 }
 
 // 是否开机启动
-BOOL IsAutoStart()
+BOOL IsAutoStartEnabled()
 {
     HKEY hKey;
 
@@ -329,8 +329,8 @@ BOOL IsAutoStart()
     if (RegOpenKeyEx(HKEY_CURRENT_USER, REG_RUN_PATH, 0, KEY_ALL_ACCESS, &hKey) == ERROR_SUCCESS)
     {
         // 获得exe全路径
-        TCHAR strExeFullDir[MAX_PATH];
-        GetModuleFileName(NULL, strExeFullDir, MAX_PATH);
+        TCHAR szAppPath[MAX_PATH];
+        GetModuleFileName(NULL, szAppPath, MAX_PATH);
 
         // 判断注册表项是否已经存在
         TCHAR strDir[MAX_PATH] = {};
@@ -340,9 +340,9 @@ BOOL IsAutoStart()
         if (result == ERROR_SUCCESS)
         {
             // 路径一致
-            if (lstrcmp(strExeFullDir, strDir) != 0)
+            if (lstrcmp(szAppPath, strDir) != 0)
             {
-                RegSetValueEx(hKey, szWindowClass, 0, REG_SZ, (LPBYTE)strExeFullDir, (lstrlen(strExeFullDir) + 1) * sizeof(TCHAR));
+                RegSetValueEx(hKey, szWindowClass, 0, REG_SZ, (LPBYTE)szAppPath, (lstrlen(szAppPath) + 1) * sizeof(TCHAR));
             }
             return true;
         }
@@ -365,10 +365,10 @@ void SetAutoStart(BOOL flag)
         if (flag)
         {
             // 获得全路径
-            TCHAR strExeFullDir[MAX_PATH];
-            GetModuleFileName(NULL, strExeFullDir, MAX_PATH);
+            TCHAR szAppPath[MAX_PATH];
+            GetModuleFileName(NULL, szAppPath, MAX_PATH);
 
-            result = RegSetValueEx(hKey, szWindowClass, 0, REG_SZ, (LPBYTE)strExeFullDir, (lstrlen(strExeFullDir) + 1) * sizeof(TCHAR));
+            result = RegSetValueEx(hKey, szWindowClass, 0, REG_SZ, (LPBYTE)szAppPath, (lstrlen(szAppPath) + 1) * sizeof(TCHAR));
         }
         else {
             // 删除
@@ -379,7 +379,7 @@ void SetAutoStart(BOOL flag)
 
         if (result == ERROR_SUCCESS)
         {
-            AutoStart_STATE = flag;
+            g_bAutoStart = flag;
         }
     }
 }
