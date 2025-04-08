@@ -14,6 +14,7 @@ processorArchitecture = '*' publicKeyToken = '6595b64144ccf1df' language = '*'\"
 // Global variables
 HINSTANCE       g_hInst;
 NOTIFYICONDATA  nid;
+HANDLE          g_hMutex;
 HHOOK           g_hHook;
 BOOL            g_bAutoStart = false;
 
@@ -57,18 +58,15 @@ int WINAPI WinMain(
 
     LoadString(hInstance, IDS_APP_TITLE, szTitle, ARRAYSIZE(szTitle));
 
-    // 只允许运行一个实例
-    HWND hWnd = ::FindWindow((LPCTSTR)szWindowClass, LPCTSTR(szTitle));
-    if (hWnd != NULL)
-    {
-        MessageBox(hWnd, TEXT("程序运行中 . . ."), TEXT("提示 - CapsLock"), MB_OK | MB_ICONINFORMATION);
-        // ShowWindow(hWnd, SW_RESTORE);
-        // SetForegroundWindow(hWnd);
+    // 创建互斥体 只允许运行一个实例
+    g_hMutex = CreateMutex(NULL, FALSE, szWindowClass);
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        MessageBox(NULL, TEXT("程序已在运行中 . . ."), TEXT("提示 - CapsLock"), MB_ICONINFORMATION);
         return 1;
     }
 
     // Create the main window. This could be a hidden window if you don't need
-    hWnd = CreateWindow(szWindowClass,
+    HWND hWnd = CreateWindow(szWindowClass,
         szTitle,
         WS_OVERLAPPED | WS_SYSMENU | WS_MINIMIZEBOX,    // 不允许最大化
         GetSystemMetrics(SM_CXSCREEN) / 2 - 150, GetSystemMetrics(SM_CYSCREEN) / 2 - 100,   // 位置居中
@@ -96,7 +94,7 @@ int WINAPI WinMain(
     // 判断是否成功
     if (g_hHook == NULL)
     {
-        MessageBox(hWnd, TEXT("添加钩子失败"), TEXT("错误"), MB_OK | MB_ICONERROR);
+        MessageBox(hWnd, TEXT("添加钩子失败"), TEXT("错误 - CapsLock"), MB_OK | MB_ICONERROR);
         return 1;
     }
 
@@ -111,9 +109,16 @@ int WINAPI WinMain(
         DispatchMessage(&msg);
     }
 
+    // 清理资源
+    if (g_hMutex)
+    {
+        ReleaseMutex(g_hMutex);
+        CloseHandle(g_hMutex);
+    }
     DeleteTrayIcon();
     UnhookWindowsHookEx(g_hHook);
-    return 0;
+
+    return (int)msg.wParam;
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
