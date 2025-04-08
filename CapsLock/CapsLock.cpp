@@ -16,7 +16,7 @@ HINSTANCE       g_hInst;
 NOTIFYICONDATA  nid;
 HANDLE          g_hMutex;
 HHOOK           g_hHook;
-BOOL            g_bAutoStart = false;
+BOOL            g_bAutoStart = FALSE;
 
 const UINT WMAPP_NOTIFYCALLBACK = WM_APP + 1;
 
@@ -328,63 +328,64 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 // 是否开机启动
 BOOL IsAutoStartEnabled()
 {
-    HKEY hKey;
+    HKEY hKey = NULL;
+    BOOL isEnabled = FALSE;
 
     // 系统启动项
-    if (RegOpenKeyEx(HKEY_CURRENT_USER, REG_RUN_PATH, 0, KEY_ALL_ACCESS, &hKey) == ERROR_SUCCESS)
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, REG_RUN_PATH, 0, KEY_READ | KEY_WRITE, &hKey) != ERROR_SUCCESS)
+        return isEnabled;
+
+    // 获得exe全路径
+    TCHAR szAppPath[MAX_PATH];
+    GetModuleFileName(NULL, szAppPath, MAX_PATH);
+
+    // 判断注册表项是否已经存在
+    TCHAR szAppPathInReg[MAX_PATH] = {};
+    DWORD nLength = MAX_PATH;
+    long result = RegGetValue(hKey, NULL, szWindowClass, RRF_RT_REG_SZ, NULL, szAppPathInReg, &nLength);
+
+    if (result == ERROR_SUCCESS)
     {
-        // 获得exe全路径
-        TCHAR szAppPath[MAX_PATH];
-        GetModuleFileName(NULL, szAppPath, MAX_PATH);
-
-        // 判断注册表项是否已经存在
-        TCHAR strDir[MAX_PATH] = {};
-        DWORD nLength = MAX_PATH;
-        long result = RegGetValue(hKey, nullptr, szWindowClass, RRF_RT_REG_SZ, 0, strDir, &nLength);
-
-        if (result == ERROR_SUCCESS)
+        // 路径一致
+        if (lstrcmpi(szAppPath, szAppPathInReg) != 0)
         {
-            // 路径一致
-            if (lstrcmp(szAppPath, strDir) != 0)
-            {
-                RegSetValueEx(hKey, szWindowClass, 0, REG_SZ, (LPBYTE)szAppPath, (lstrlen(szAppPath) + 1) * sizeof(TCHAR));
-            }
-            return true;
+            RegSetValueEx(hKey, szWindowClass, 0, REG_SZ, (LPBYTE)szAppPath, (lstrlen(szAppPath) + 1) * sizeof(TCHAR));
         }
-
-        // 关闭注册表
-        RegCloseKey(hKey);
+        isEnabled = TRUE;
     }
-    return false;
+
+    // 关闭注册表
+    RegCloseKey(hKey);
+    return isEnabled;
 }
 
 // 设置/取消 开机启动
 void SetAutoStart(BOOL flag)
 {
-    HKEY hKey;
+    HKEY hKey = NULL;
     long result;
 
     // 系统启动项
-    if (RegOpenKeyEx(HKEY_CURRENT_USER, REG_RUN_PATH, 0, KEY_ALL_ACCESS, &hKey) == ERROR_SUCCESS)
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, REG_RUN_PATH, 0, KEY_READ | KEY_WRITE, &hKey) != ERROR_SUCCESS)
+        return;
+
+    if (flag)
     {
-        if (flag)
-        {
-            // 获得全路径
-            TCHAR szAppPath[MAX_PATH];
-            GetModuleFileName(NULL, szAppPath, MAX_PATH);
+        // 获得全路径
+        TCHAR szAppPath[MAX_PATH];
+        GetModuleFileName(NULL, szAppPath, MAX_PATH);
 
-            result = RegSetValueEx(hKey, szWindowClass, 0, REG_SZ, (LPBYTE)szAppPath, (lstrlen(szAppPath) + 1) * sizeof(TCHAR));
-        }
-        else {
-            // 删除
-            result = RegDeleteValue(hKey, szWindowClass);
-        }
+        result = RegSetValueEx(hKey, szWindowClass, 0, REG_SZ, (LPBYTE)szAppPath, (lstrlen(szAppPath) + 1) * sizeof(TCHAR));
+    }
+    else {
+        // 删除
+        result = RegDeleteValue(hKey, szWindowClass);
+    }
 
-        RegCloseKey(hKey);
+    RegCloseKey(hKey);
 
-        if (result == ERROR_SUCCESS)
-        {
-            g_bAutoStart = flag;
-        }
+    if (result == ERROR_SUCCESS)
+    {
+        g_bAutoStart = flag;
     }
 }
