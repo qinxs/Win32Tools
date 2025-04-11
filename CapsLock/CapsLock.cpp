@@ -25,6 +25,7 @@ const  TCHAR szWindowClass[] = TEXT("CapsLock.7bxing");
 static TCHAR szTitle[32];
 
 // Forward declarations of functions included in this code module:
+void                RegisterWindowClass();
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 BOOL                AddTrayIcon(HWND hWnd);
 BOOL                DeleteTrayIcon();
@@ -42,19 +43,7 @@ int WINAPI WinMain(
 )
 {
     g_hInst = hInstance;
-
-    // ×¢²á
-    WNDCLASSEX wcex      = { sizeof(WNDCLASSEX) };
-    wcex.style           = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc     = WndProc;
-    wcex.hInstance       = hInstance;
-    wcex.hIcon           = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1));
-    wcex.hCursor         = LoadCursor(NULL, IDC_ARROW);
-    wcex.hbrBackground   = (HBRUSH)GetStockObject(WHITE_BRUSH);   // ´°¿ÚÄ¬ÈÏ±³¾°
-    // wcex.hbrBackground   = CreateSolidBrush(RGB(135, 206, 235));
-    wcex.lpszMenuName    = NULL;
-    wcex.lpszClassName   = szWindowClass;
-    RegisterClassEx(&wcex);
+    RegisterWindowClass();
 
     LoadString(hInstance, IDS_APP_TITLE, szTitle, ARRAYSIZE(szTitle));
 
@@ -119,6 +108,21 @@ int WINAPI WinMain(
     UnhookWindowsHookEx(g_hHook);
 
     return (int)msg.wParam;
+}
+
+void RegisterWindowClass()
+{
+    WNDCLASSEX wcex = { sizeof(WNDCLASSEX) };
+    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc = WndProc;
+    wcex.hInstance = g_hInst;
+    wcex.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDI_ICON1));
+    wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wcex.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);   // ´°¿ÚÄ¬ÈÏ±³¾°
+    // wcex.hbrBackground   = CreateSolidBrush(RGB(135, 206, 235));
+    wcex.lpszMenuName = NULL;
+    wcex.lpszClassName = szWindowClass;
+    RegisterClassEx(&wcex);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
