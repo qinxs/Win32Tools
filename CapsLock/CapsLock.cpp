@@ -226,17 +226,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WMAPP_NOTIFYCALLBACK:
-        switch (lParam)
+        switch (LOWORD(lParam))
         {
             case WM_LBUTTONDBLCLK:  // 双击托盘的消息，退出
                 ShowWindow(hWnd, SW_RESTORE);
                 SetForegroundWindow(hWnd);
                 break;
-            case WM_RBUTTONDOWN:
-                // TODO: 微软教程是根据wParam获取坐标，此处wParam却是控件ID？
-                // POINT const pt = { LOWORD(wParam), HIWORD(wParam) };
-                POINT pt; // 用于接收鼠标坐标
-                GetCursorPos(&pt);
+            case WM_CONTEXTMENU:
+                POINT const pt = { LOWORD(wParam), HIWORD(wParam) };
                 ShowContextMenu(hWnd, pt);
                 break;
         }
@@ -248,18 +245,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 BOOL AddTrayIcon(HWND hWnd) {
-    nid.cbSize = sizeof(NOTIFYICONDATA);
+    nid = { sizeof(nid) };
     nid.hWnd = hWnd;
     nid.uID = IDI_ICON2;
-    nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+    nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
     nid.uCallbackMessage = WMAPP_NOTIFYCALLBACK;
     // nid.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDI_ICON2));
     SetTrayIconAndTip();
-    return Shell_NotifyIcon(NIM_ADD, &nid);
+    Shell_NotifyIcon(NIM_ADD, &nid);
 
     // NOTIFYICON_VERSION_4 is prefered
-    // nid.uVersion = NOTIFYICON_VERSION_4;
-    // return Shell_NotifyIcon(NOTIFYICON_VERSION_4, &nid);
+    nid.uVersion = NOTIFYICON_VERSION_4;
+    return Shell_NotifyIcon(NIM_SETVERSION, &nid);
 }
 
 BOOL DeleteTrayIcon()
@@ -292,9 +289,7 @@ void ShowContextMenu(HWND hWnd, POINT pt)
                 uFlags |= TPM_LEFTALIGN;
             }
 
-            TrackPopupMenu(hTrayMenu, uFlags, pt.x, pt.y, 0, hWnd, NULL);
-            // 发送一个空消息到窗口来确认菜单已被处理
-            // PostMessage(hWnd, WM_NULL, 0, 0);
+            TrackPopupMenuEx(hTrayMenu, uFlags, pt.x, pt.y, hWnd, NULL);
         }
         DestroyMenu(hMenu);
     }
@@ -312,6 +307,7 @@ void SetTrayIconAndTip()
         LoadString(g_hInst, IDS_TRAYTIP_OFF, nid.szTip, ARRAYSIZE(nid.szTip));
         LoadIconMetric(g_hInst, MAKEINTRESOURCE(IDI_ICON3), LIM_SMALL, &nid.hIcon);
     }
+    Shell_NotifyIcon(NIM_MODIFY, &nid);
 }
 
 LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -322,7 +318,6 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (nCode >= 0 && p->vkCode == VK_CAPITAL)
     {
         SetTrayIconAndTip();
-        Shell_NotifyIcon(NIM_MODIFY, &nid);
     }
 
     // 将消息继续往下传递
