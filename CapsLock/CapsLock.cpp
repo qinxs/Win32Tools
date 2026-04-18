@@ -24,6 +24,9 @@ const UINT WMAPP_NOTIFYCALLBACK = WM_APP + 1;
 const  TCHAR szWindowClass[] = TEXT("CapsLock.7bxing");
 static TCHAR szTitle[32];
 
+// DPI 缩放倍数
+float  g_scale = 1.0f;
+
 // Forward declarations of functions included in this code module:
 void                RegisterWindowClass();
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -34,6 +37,15 @@ void                SetTrayIconAndTip();
 LRESULT CALLBACK    KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 BOOL                IsAutoStartEnabled();
 void                SetAutoStart(BOOL flag);
+UINT                GetSystemDpi();
+
+UINT GetSystemDpi()
+{
+    HDC hdc = GetDC(NULL);
+    UINT dpi = GetDeviceCaps(hdc, LOGPIXELSY);
+    ReleaseDC(NULL, hdc);
+    return dpi;
+}
 
 int WINAPI WinMain(
     _In_ HINSTANCE hInstance,
@@ -42,6 +54,9 @@ int WINAPI WinMain(
     _In_ int       nCmdShow
 )
 {
+    SetProcessDPIAware();
+
+
     g_hInst = hInstance;
     RegisterWindowClass();
 
@@ -54,12 +69,16 @@ int WINAPI WinMain(
         return 1;
     }
 
+    // 获取系统 DPI 并计算缩放因子
+    UINT uDpi = GetSystemDpi();
+    g_scale = (float)uDpi / 96.0f;
+
     // Create the main window. This could be a hidden window if you don't need
     HWND hWnd = CreateWindow(szWindowClass,
         szTitle,
         WS_OVERLAPPED | WS_SYSMENU | WS_MINIMIZEBOX,    // 不允许最大化
         GetSystemMetrics(SM_CXSCREEN) / 2 - 150, GetSystemMetrics(SM_CYSCREEN) / 2 - 100,   // 位置居中
-        300, 180,   // 窗口大小
+        (int)(300 * g_scale), (int)(180 * g_scale),   // 窗口大小
         NULL,       // 父窗口句柄
         NULL,       // 窗口菜单句柄
         hInstance, NULL
@@ -146,8 +165,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             HWND hStatic = CreateWindow(TEXT("static"),
                 greeting,
                 WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE | SS_CENTER,
-                20, 30,         // 坐标
-                240, 60,        // 宽高
+                (int)(20 * g_scale), (int)(30 * g_scale),         // 坐标
+                (int)(240 * g_scale), (int)(60 * g_scale),        // 宽高
                 hWnd,           // 父窗口句柄
                 (HMENU)101,     // 控件ID
                 g_hInst,        // 当前程序实例句柄
@@ -155,7 +174,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             );
 
             // 创建字体
-            hFont = CreateFont(-14, -7,     // height, width
+            hFont = CreateFont((int)(-14 * g_scale), 0,     // height, width
                 0, 0,                       // escapement, orientation
                 FW_BOLD,                    // font weight
                 FALSE, FALSE, FALSE,        // 斜体-下划线-删除线
