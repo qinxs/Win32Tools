@@ -233,7 +233,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 SetForegroundWindow(hWnd);
                 break;
             case WM_CONTEXTMENU:
-                POINT const pt = { LOWORD(wParam), HIWORD(wParam) };
+                POINT pt = { LOWORD(wParam), HIWORD(wParam) };
+                GetCursorPos(&pt);  // 获取当前光标位置（物理坐标）
                 ShowContextMenu(hWnd, pt);
                 break;
         }
